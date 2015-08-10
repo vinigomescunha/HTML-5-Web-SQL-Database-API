@@ -1,0 +1,208 @@
+<!doctype html>
+
+<head>
+    <meta charset=utf-8>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <style>label{text-transform:uppercase;}.form-id{display:none;}.modal-body{text-align:center;}.confirm-delete{font-size:20px;text-align:center;color:#FF0000;}</style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>HTML 5 - Web SQL Database API</h1>
+        <button class="btn btn-default" data-target="#modalID" onclick="System.CreateDialog(this)">Create</button>
+        <div class="table-responsive">
+            <table class="table" id="MainTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Modal -->
+    <div id="modalID" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Modal Header</h4>
+                </div>
+                <div class="modal-body">
+                    <p>Modal Content. ;D</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+    var System = {
+        fields: ["name", "email"],
+        closeModal: function() {
+            /* close all modals */
+            var modal = document.getElementsByClassName("modal fade");
+            for (var i in modal) {
+                if (modal[i] && typeof modal[i] == 'object') {
+                    modal[i].className = modal[i].className.replace(" in", "");
+                    modal[i].style.display = "none";
+                }
+            }
+        },
+        showModal: function(modal) {
+            /* show modal selected */
+            modal.className += " in";modal.style.display = "block";
+        },
+        createForm: function(item) {
+            /* create a form object based */
+            var frm = document.createElement("form");
+            for (var i in item) {
+                var input = document.createElement("input");
+                input.name = i;
+                if (i.toLowerCase() == "ID".toLowerCase()) input.setAttribute("disabled", "disabled");
+                input.setAttribute("value", item[i]);
+                var fg = document.createElement("div");
+                fg.className = "form-group " + "form-" + i;fg.innerHTML = '<label for="' + i + '">' + i + ': </label> ' + input.outerHTML;
+                frm.appendChild(fg);
+            }
+            return frm;
+        },
+        UpdateDialog: function(e) {
+            /* open modal and populate to update  */
+            var id = e.getAttribute("data-target"),
+                modal = document.querySelectorAll(id)[0],
+                form;
+            System.showModal(modal); /* open modal */
+            db.transaction(function(tx) {
+                tx.executeSql('SELECT * FROM users WHERE id=' + e.getAttribute("data-id"), [], function(tx, results) {
+                        var form = System.createForm(results.rows.item(0)), s = document.createElement("input");
+                        s.setAttribute("type", "submit");s.setAttribute("Value", "update");s.className = "btn btn-primary";/* submit button */
+                        form.appendChild(s);
+                        form.onsubmit = function(e) {
+                            e.preventDefault();
+                            var sql = [], elements = e.target.elements;
+                            for (var f in System.fields)
+                                if (elements && elements[System.fields[f]])
+                                    sql[sql.length] = System.fields[f] + "='" + elements[System.fields[f]].value + "'";
+                            db.transaction(function(tx) {
+                                tx.executeSql('UPDATE users SET ' + sql.join(",") + ' WHERE id=' + elements["id"].value, [], function(tx, results) {
+                                    System.List();
+                                    console.log("Updated");
+                                });
+                            });
+                            System.closeModal();
+                        }
+                        modal.getElementsByClassName("modal-title")[0].innerText = "Update";
+                        modal.getElementsByClassName("modal-body")[0].innerHTML = "";
+                        modal.getElementsByClassName("modal-body")[0].appendChild(form);
+                    },
+                    function(tx, error) {
+                        console.log('Has occurred a error: ' + error.message);
+                    });
+            });
+
+        },
+        ExcludeDialog: function(e) {
+            /* open modal to exclude */
+            var id = e.getAttribute("data-target"),modal = document.querySelectorAll(id)[0],form, dataId = e.getAttribute("data-id"),s = document.createElement("input");
+            System.showModal(modal);
+            form = System.createForm({id: dataId});
+            s.setAttribute("type", "submit");s.setAttribute("Value", "Delete");s.className = "btn btn-primary";/* submit button */
+            form.appendChild(s);
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                db.transaction(function(tx) {
+                    tx.executeSql('DELETE FROM users WHERE id=' + dataId, [], function(tx, results) {
+                        document.getElementById("row-" + dataId).remove();System.closeModal();
+                    });
+                });
+            }
+            modal.getElementsByClassName("modal-title")[0].innerText = "Delete";
+            modal.getElementsByClassName("modal-body")[0].innerHTML = "<div class='confirm-delete'>Are you sure you want to delete?</div>";
+            modal.getElementsByClassName("modal-body")[0].appendChild(form);
+        },
+        CreateDialog: function(e) { /* open modal to exclude */
+            var id = e.getAttribute("data-target"), modal = document.querySelectorAll(id)[0],form, dataId = e.getAttribute("data-id"),s = document.createElement("input");
+            System.showModal(modal);/* show creation modal */
+            form = System.createForm({name: "",email: ""});/* create empty submit form */
+            s.setAttribute("type", "submit");s.setAttribute("Value", "Create");s.className = "btn btn-primary";/* submit button */
+            form.appendChild(s);
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                var sql = [],
+                    elements = e.target.elements;
+                for (var f in System.fields) {
+                    if (elements && elements[System.fields[f]])
+                        sql[System.fields[f]] = elements[System.fields[f]].value;
+                }
+
+                db.transaction(function(tx) {
+                    tx.executeSql('INSERT INTO users (id, name, email) VALUES (null, "' + sql["name"] + '","' + sql["email"] + '")', [], function(tx, results) {
+                        System.List();console.log("Created");System.closeModal();
+                    });
+                });
+            }
+            modal.getElementsByClassName("modal-title")[0].innerText = "Create";
+            modal.getElementsByClassName("modal-body")[0].innerHTML = "";
+            modal.getElementsByClassName("modal-body")[0].appendChild(form);
+        },
+        List: function() {
+		/* List function */
+            db.transaction(function(tx) {
+                tx.executeSql('SELECT * FROM users', [], function(tx, results) {
+			console.log("Listing ... ");
+                        var table = document.getElementById("MainTable");
+                        table.getElementsByTagName("tbody")[0].innerHTML = "";
+                        for (var i = 0; i < results.rows.length; i++) {
+                            var row = results.rows.item(i), tr = document.createElement("tr");
+                            tr.id = "row-" + row.id;
+                            for (var j in row) {
+                                var td = document.createElement("td");
+                                td.innerHTML = row[j];
+                                tr.appendChild(td);
+                            }
+                            var td = document.createElement("td");
+                            td.innerHTML = '<button class="btn btn-default" data-target="#modalID" data-id=' + row.id + ' onclick="System.UpdateDialog(this)">Edit</button><button class="btn btn-danger"  data-target="#modalID" data-id=' + row.id + ' onclick="System.ExcludeDialog(this)">Delete</button></td>';
+                            tr.appendChild(td);
+                            table.getElementsByTagName("tbody")[0].appendChild(tr);
+                        }
+                    },
+                    function(tx, error) {
+                        console.log('Has occurred a error: ' + error.message);
+                    });
+            });
+        }
+    };
+
+    if (window.openDatabase) {
+        console.log("%c Web SQL Database is Running", 'background: #1F8411; color: #FFFFFF; font-size:30px; padding:10px 20px');
+        /* open database */
+        var db = openDatabase('MyDatabase', '1.0', 'My Database Test version 1.0', 5 * 1024 * 1024); //5 MB storage :)
+        /* set transaction to create table */
+        db.transaction(function(tx) {
+            tx.executeSql('CREATE TABLE IF NOT EXISTS users (\'id\' INTEGER PRIMARY KEY ASC, name, email)', [], function() {
+                console.log(' Table Created ... or skipping :/ ');
+            });
+        });
+        /* list all rows of table */
+        System.List();
+    } else {
+        /* dont support :( */
+        console.log('%c This browser cannot support Web SQL Databases! ', 'background: #EA001B; color: #FFFFFF;  font-size:30px; padding:10px 20px');
+    }
+
+    //close modal
+    (function closeEvents() {
+        var close = document.querySelectorAll("[data-dismiss='modal']");
+        for (var i in close)
+            if (typeof close[i] == 'object') close[i].addEventListener("click", System.closeModal);
+    })();
+</script>
